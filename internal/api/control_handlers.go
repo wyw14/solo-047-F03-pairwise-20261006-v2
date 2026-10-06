@@ -34,7 +34,88 @@ func (s *Server) rampRepeater(writer http.ResponseWriter, request *http.Request)
 		writeError(writer, http.StatusConflict, err)
 		return
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"repeater": result, "commands": s.services.Actuator.Commands()})
+	session, _ := s.services.Ramps.SessionOf(result.ID)
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"repeater": result, "session": rampView(session), "commands": s.services.Actuator.Commands(),
+	})
+}
+
+func (s *Server) startRamp(writer http.ResponseWriter, request *http.Request) {
+	target, err := s.services.Repeater(chi.URLParam(request, "id"))
+	if err != nil {
+		writeError(writer, http.StatusNotFound, err)
+		return
+	}
+	var input RampStartRequest
+	if err := decodeJSON(request, &input); err != nil {
+		writeError(writer, http.StatusBadRequest, err)
+		return
+	}
+	session, err := s.services.Ramps.Start(request.Context(), target, input.Steps)
+	if err != nil {
+		writeError(writer, http.StatusConflict, err)
+		return
+	}
+	writeJSON(writer, http.StatusCreated, rampView(session))
+}
+
+func (s *Server) getRamp(writer http.ResponseWriter, request *http.Request) {
+	target, err := s.services.Repeater(chi.URLParam(request, "id"))
+	if err != nil {
+		writeError(writer, http.StatusNotFound, err)
+		return
+	}
+	session, ok := s.services.Ramps.SessionOf(target.Snapshot().ID)
+	if !ok {
+		writeJSON(writer, http.StatusNotFound, ErrorResponse{Error: "ramp session not found"})
+		return
+	}
+	writeJSON(writer, http.StatusOK, rampView(session))
+}
+
+func (s *Server) pauseRamp(writer http.ResponseWriter, request *http.Request) {
+	s.updateRamp(writer, request, func(target *repeater.Repeater) (repeater.RampSession, error) {
+		return s.services.Ramps.Pause(target)
+	})
+}
+
+func (s *Server) reviewRamp(writer http.ResponseWriter, request *http.Request) {
+	var input RampReviewRequest
+	if err := decodeJSON(request, &input); err != nil {
+		writeError(writer, http.StatusBadRequest, err)
+		return
+	}
+	s.updateRamp(writer, request, func(target *repeater.Repeater) (repeater.RampSession, error) {
+		return s.services.Ramps.Review(target, input.Reviewer)
+	})
+}
+
+func (s *Server) resumeRamp(writer http.ResponseWriter, request *http.Request) {
+	s.updateRamp(writer, request, func(target *repeater.Repeater) (repeater.RampSession, error) {
+		return s.services.Ramps.Resume(target)
+	})
+}
+
+func (s *Server) updateRamp(writer http.ResponseWriter, request *http.Request, action func(*repeater.Repeater) (repeater.RampSession, error)) {
+	target, err := s.services.Repeater(chi.URLParam(request, "id"))
+	if err != nil {
+		writeError(writer, http.StatusNotFound, err)
+		return
+	}
+	session, err := action(target)
+	if err != nil {
+		writeError(writer, http.StatusConflict, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, rampView(session))
+}
+
+func rampView(session repeater.RampSession) map[string]any {
+	view := map[string]any{"session": session}
+	if next, ok := session.NextStep(); ok {
+		view["next_step"] = next
+	}
+	return view
 }
 
 func (s *Server) resetRepeater(writer http.ResponseWriter, request *http.Request) {

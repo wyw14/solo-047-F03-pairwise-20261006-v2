@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/wyw14/cry-103/internal/otdr"
+	"github.com/wyw14/cry-103/internal/repeater"
 )
 
 type ErrorResponse struct {
@@ -56,6 +57,14 @@ type RampRequest struct {
 	Step         int     `json:"step"`
 	Voltage      float64 `json:"voltage"`
 	SamplesAfter uint64  `json:"samples_after"`
+}
+
+type RampStartRequest struct {
+	Steps []repeater.RampStep `json:"steps"`
+}
+
+type RampReviewRequest struct {
+	Reviewer string `json:"reviewer"`
 }
 
 type ResetRequest struct {
