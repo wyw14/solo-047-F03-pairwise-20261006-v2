@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/wyw14/cry-103/internal/otdr"
+	"github.com/wyw14/cry-103/internal/repeater"
 )
 
 type ErrorResponse struct {
@@ -53,9 +54,12 @@ type TelemetryRequest struct {
 }
 
 type RampRequest struct {
-	Step         int     `json:"step"`
-	Voltage      float64 `json:"voltage"`
-	SamplesAfter uint64  `json:"samples_after"`
+	Action       string              `json:"action"`
+	Step         int                 `json:"step"`
+	Voltage      float64             `json:"voltage"`
+	SamplesAfter uint64              `json:"samples_after"`
+	Steps        []repeater.RampStep `json:"steps"`
+	ReviewedBy   string              `json:"reviewed_by"`
 }
 
 type ResetRequest struct {

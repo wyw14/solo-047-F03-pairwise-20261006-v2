@@ -29,12 +29,59 @@ func (s *Server) rampRepeater(writer http.ResponseWriter, request *http.Request)
 		writeError(writer, http.StatusBadRequest, err)
 		return
 	}
-	result, err := s.services.Ramps.ApplyStep(request.Context(), target, repeater.RampStep{Number: input.Step, Voltage: input.Voltage}, input.SamplesAfter)
+	switch input.Action {
+	case "", "step":
+		outcome, err := s.services.Ramps.ApplyStep(request.Context(), target, repeater.RampStep{Number: input.Step, Voltage: input.Voltage}, input.SamplesAfter)
+		if err != nil {
+			writeError(writer, http.StatusConflict, err)
+			return
+		}
+		writeJSON(writer, http.StatusOK, map[string]any{
+			"repeater": outcome.Repeater, "ramp": outcome.Run, "record": outcome.Record,
+			"command_issued": outcome.CommandIssued, "commands": s.services.Actuator.Commands(),
+		})
+	case "start":
+		run, err := s.services.Ramps.Start(target, input.Steps)
+		if err != nil {
+			writeError(writer, http.StatusConflict, err)
+			return
+		}
+		writeJSON(writer, http.StatusCreated, map[string]any{"ramp": run})
+	case "pause":
+		run, err := s.services.Ramps.Pause(target)
+		if err != nil {
+			writeError(writer, http.StatusConflict, err)
+			return
+		}
+		writeJSON(writer, http.StatusOK, map[string]any{"ramp": run})
+	case "resume":
+		run, err := s.services.Ramps.Resume(target, input.ReviewedBy)
+		if err != nil {
+			writeError(writer, http.StatusConflict, err)
+			return
+		}
+		writeJSON(writer, http.StatusOK, map[string]any{"ramp": run})
+	default:
+		writeJSON(writer, http.StatusBadRequest, ErrorResponse{Error: "unsupported ramp action"})
+	}
+}
+
+func (s *Server) getRamp(writer http.ResponseWriter, request *http.Request) {
+	target, err := s.services.Repeater(chi.URLParam(request, "id"))
+	if err != nil {
+		writeError(writer, http.StatusNotFound, err)
+		return
+	}
+	run, found, err := s.services.Ramps.Status(target)
 	if err != nil {
 		writeError(writer, http.StatusConflict, err)
 		return
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"repeater": result, "commands": s.services.Actuator.Commands()})
+	if !found {
+		writeJSON(writer, http.StatusNotFound, ErrorResponse{Error: "ramp not found"})
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"ramp": run})
 }
 
 func (s *Server) resetRepeater(writer http.ResponseWriter, request *http.Request) {

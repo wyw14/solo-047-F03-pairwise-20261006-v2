@@ -111,6 +111,9 @@ func buildServices(cfg config) (*api.Services, error) {
 	}
 	actuator := feed.NewActuator()
 	ramps := repeater.NewRampController(actuator, telemetryRepository, telemetry.StabilityWindow{MinimumSamples: 2, MaximumSpread: 1.5, MinimumPeriod: time.Second}, checkpoints, now)
+	if _, err := ramps.Recover(repeaterR07); err != nil {
+		return nil, fmt.Errorf("recover ramp checkpoint: %w", err)
+	}
 	wetPlantTests := repair.NewTestService(mutes, ids, now, 30*time.Second)
 
 	return &api.Services{

@@ -5,10 +5,30 @@ import (
 	"time"
 )
 
+type RampPlanStep struct {
+	Number  int     `json:"number"`
+	Voltage float64 `json:"voltage"`
+}
+
+type RampStepRecord struct {
+	StepNumber        int       `json:"step_number"`
+	Voltage           float64   `json:"voltage"`
+	CursorBefore      uint64    `json:"cursor_before"`
+	CursorAfter       uint64    `json:"cursor_after"`
+	CommandAcceptedAt time.Time `json:"command_accepted_at"`
+	CompletedAt       time.Time `json:"completed_at"`
+}
+
 type RampCheckpoint struct {
-	RepeaterID string    `json:"repeater_id"`
-	StableStep int       `json:"stable_step"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	RepeaterID    string           `json:"repeater_id"`
+	StableStep    int              `json:"stable_step"`
+	UpdatedAt     time.Time        `json:"updated_at"`
+	Generation    uint64           `json:"generation,omitempty"`
+	State         string           `json:"state,omitempty"`
+	Plan          []RampPlanStep   `json:"plan,omitempty"`
+	Records       []RampStepRecord `json:"records,omitempty"`
+	ReviewedBy    string           `json:"reviewed_by,omitempty"`
+	InvalidReason string           `json:"invalid_reason,omitempty"`
 }
 
 type HeartbeatSnapshot struct {
